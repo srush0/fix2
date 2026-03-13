@@ -166,12 +166,14 @@ service cloud.firestore {
        * READ ACCESS:
        * - Customer can read their own bookings (customerId matches)
        * - Provider can read bookings assigned to them (providerId matches)
+       * - ANY authenticated user can read pending bookings (for provider dashboard)
        * - Admins and staff can read all bookings
        */
       allow read: if isAdmin() || 
                      isStaff() ||
                      (isAuthenticated() && resource.data.customerId == request.auth.uid) ||
-                     (isAuthenticated() && resource.data.providerId == request.auth.uid);
+                     (isAuthenticated() && resource.data.providerId == request.auth.uid) ||
+                     (isAuthenticated() && resource.data.status == 'pending');
       
       /**
        * CREATE ACCESS:
@@ -190,6 +192,7 @@ service cloud.firestore {
        * 
        * Provider can update if:
        * - They are assigned to the booking (providerId matches)
+       * - OR they are accepting a pending booking (setting providerId to their UID)
        * - Typically for status updates (accepted, on_the_way, completed)
        * 
        * Admin/Staff can update any booking
@@ -197,7 +200,9 @@ service cloud.firestore {
       allow update: if isAdmin() || 
                        isStaff() ||
                        (isAuthenticated() && resource.data.customerId == request.auth.uid) ||
-                       (isAuthenticated() && resource.data.providerId == request.auth.uid);
+                       (isAuthenticated() && resource.data.providerId == request.auth.uid) ||
+                       (isAuthenticated() && resource.data.status == 'pending' && 
+                        request.resource.data.providerId == request.auth.uid);
       
       /**
        * DELETE ACCESS:

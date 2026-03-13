@@ -351,3 +351,39 @@ export const subscribeToCustomerBookings = (customerId, callback) => {
     throw new Error('Failed to subscribe to customer bookings');
   }
 };
+
+/**
+ * Subscribe to pending bookings (real-time) - for provider dashboard
+ * 
+ * @param {Function} callback - Callback function to handle updates
+ * @returns {Function} Unsubscribe function
+ */
+export const subscribeToPendingBookings = (callback) => {
+  try {
+    const bookingsRef = collection(db, 'bookings');
+    const q = query(
+      bookingsRef,
+      where('status', '==', 'pending'),
+      orderBy('createdAt', 'desc')
+    );
+    
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const bookings = [];
+      querySnapshot.forEach((doc) => {
+        bookings.push({
+          id: doc.id,
+          ...doc.data()
+        });
+      });
+      callback(bookings);
+    }, (error) => {
+      console.error('Error in pending bookings subscription:', error);
+      callback([]);
+    });
+    
+    return unsubscribe;
+  } catch (error) {
+    console.error('Error subscribing to pending bookings:', error);
+    throw new Error('Failed to subscribe to pending bookings');
+  }
+};

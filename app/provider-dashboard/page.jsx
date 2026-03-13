@@ -14,7 +14,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { speak } from '@/lib/tts';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import { getPendingBookings, assignProvider, rejectBooking } from '@/services/bookingService';
+import { getPendingBookings, assignProvider, rejectBooking, subscribeToPendingBookings } from '@/services/bookingService';
 import { useUserStats } from '@/hooks/useUser';
 
 export default function ProviderDashboard() {
@@ -36,27 +36,26 @@ export default function ProviderDashboard() {
     }
   }, [user, authLoading, router]);
 
-  // Fetch pending bookings
+  // Fetch pending bookings with real-time updates
   useEffect(() => {
-    const fetchPendingBookings = async () => {
-      try {
-        setLoadingJobs(true);
-        const bookings = await getPendingBookings();
-        setJobRequests(bookings);
-      } catch (error) {
-        console.error('Error fetching bookings:', error);
-        toast.error('Failed to load job requests');
-      } finally {
-        setLoadingJobs(false);
+    if (!user || user.role !== 'provider') {
+      return;
+    }
+
+    setLoadingJobs(true);
+
+    // Subscribe to real-time pending bookings
+    const unsubscribe = subscribeToPendingBookings((bookings) => {
+      setJobRequests(bookings);
+      setLoadingJobs(false);
+    });
+
+    // Cleanup subscription on unmount
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
       }
     };
-
-    if (user && user.role === 'provider') {
-      fetchPendingBookings();
-      // Refresh every 30 seconds
-      const interval = setInterval(fetchPendingBookings, 30000);
-      return () => clearInterval(interval);
-    }
   }, [user]);
 
   useEffect(() => {
