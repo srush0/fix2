@@ -33,8 +33,9 @@ const TOKEN_KEY = "fixoo_token";
  * 2. Authenticates user with Firebase
  * 3. Retrieves Firebase ID Token (JWT)
  * 4. Creates/updates user in Firestore with role based on email
- * 5. Stores token in localStorage for session persistence
- * 6. Returns authenticated user data with role
+ * 5. Creates provider document if user is a provider
+ * 6. Stores token in localStorage for session persistence
+ * 7. Returns authenticated user data with role
  * 
  * @param {string} manualRole - Manual role override (optional, for backward compatibility)
  * @returns {Promise<Object>} User data with token and role
@@ -80,6 +81,11 @@ export const loginWithGoogle = async (manualRole = null) => {
       });
     }
 
+    // If user is a provider, create/update provider document
+    if (finalRole === 'provider') {
+      await createProviderDocument(user);
+    }
+
     // Return user data with role
     return {
       uid: user.uid,
@@ -92,6 +98,55 @@ export const loginWithGoogle = async (manualRole = null) => {
   } catch (error) {
     console.error("Google login error:", error);
     throw new Error(error.message || "Failed to login with Google");
+  }
+};
+
+/**
+ * Create or update provider document in Firestore
+ * 
+ * @param {Object} user - Firebase user object
+ * @returns {Promise<void>}
+ */
+const createProviderDocument = async (user) => {
+  try {
+    const { collection, doc, getDoc, setDoc, serverTimestamp } = await import('firebase/firestore');
+    const { db } = await import('@/lib/firebase');
+    
+    const providersRef = collection(db, 'providers');
+    const providerDocRef = doc(providersRef, user.uid);
+    const providerSnap = await getDoc(providerDocRef);
+    
+    // Determine service type based on email
+    let serviceType = 'electrician'; // Default for demo provider
+    
+    // Check if provider document already exists
+    if (!providerSnap.exists()) {
+      // Create new provider document
+      await setDoc(providerDocRef, {
+        userId: user.uid,
+        name: user.displayName || user.email?.split('@')[0] || 'Provider',
+        email: user.email,
+        serviceType: serviceType,
+        available: true,
+        rating: 4.8,
+        experience: '5 years',
+        jobsCompleted: 0,
+        phone: '+91 98765 43210',
+        description: 'Expert electrician with 5 years of experience',
+        specialties: ['Wiring', 'Circuit Repair', 'Panel Upgrades'],
+        lat: 28.4089,
+        lng: 77.3178,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('Provider document created for:', user.email);
+    } else {
+      console.log('Provider document already exists for:', user.email);
+    }
+  } catch (error) {
+    console.error('Error creating provider document:', error);
+    // Don't throw error - allow login to continue even if provider doc creation fails
   }
 };
 
