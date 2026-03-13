@@ -1,0 +1,101 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@layer base {
+  :root {
+    --fixoo-blue: #2D4FE0;
+    --fixoo-navy: #111827;
+    --fixoo-green: #10A753;
+    --fixoo-orange: #F38C00;
+    --fixoo-purple: #8C3CFF;
+    --fixoo-bg: #F9FAFB;
+
+    --background: 0 0% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 225 73% 53%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+    --accent: 262 83% 58%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 225 73% 53%;
+    --radius: 0.75rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-[#F9FAFB] text-foreground font-sans;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+}
+
+@layer utilities {
+  .fixoo-gradient {
+    background: linear-gradient(135deg, #2D4FE0 0%, #8C3CFF 100%);
+  }
+
+  .fixoo-shadow {
+    box-shadow: 0 4px 6px -1px rgba(45, 79, 224, 0.1), 0 2px 4px -1px rgba(45, 79, 224, 0.06);
+  }
+
+  .fixoo-shadow-lg {
+    box-shadow: 0 10px 15px -3px rgba(45, 79, 224, 0.1), 0 4px 6px -2px rgba(45, 79, 224, 0.05);
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+  }
+
+  .animate-fadeIn {
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .skeleton {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  @keyframes shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* Role badge utilities */
+  .role-badge-customer { @apply bg-blue-100 text-blue-700; }
+  .role-badge-provider  { @apply bg-green-100 text-green-700; }
+  .role-badge-admin     { @apply bg-purple-100 text-purple-700; }
+  .role-badge-staff     { @apply bg-sky-100 text-sky-700; }
+
+  /* Smooth transitions for all interactive elements */
+  button, a, [role="button"] {
+    transition: all 0.2s ease;
+  }
+}
