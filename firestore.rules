@@ -1,0 +1,324 @@
+rules_version = '2';
+
+/**
+ * ============================================================================
+ * Firestore Security Rules for Fixoo Platform
+ * ============================================================================
+ * 
+ * These rules control access to all Firestore collections in the Fixoo app.
+ * 
+ * Collections:
+ * - users: User profiles and authentication data
+ * - providers: Service provider information
+ * - services: Available service types
+ * - bookings: Customer booking requests and status
+ * 
+ * Deployment:
+ * See FIRESTORE_SECURITY_RULES.md for deployment instructions
+ * 
+ * Last Updated: 2026-03-13
+ * ============================================================================
+ */
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ========================================================================
+    // HELPER FUNCTIONS
+    // ========================================================================
+    
+    /**
+     * Check if user is authenticated
+     */
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    /**
+     * Check if authenticated user is the document owner
+     */
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    /**
+     * Check if authenticated user has a specific role
+     * Fetches role from users collection
+     */
+    function hasRole(role) {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+    }
+    
+    /**
+     * Check if authenticated user is an admin
+     * Admins have full access to all collections
+     */
+    function isAdmin() {
+      return hasRole('admin');
+    }
+    
+    /**
+     * Check if authenticated user is a provider
+     */
+    function isProvider() {
+      return hasRole('provider');
+    }
+    
+    /**
+     * Check if authenticated user is a customer
+     */
+    function isCustomer() {
+      return hasRole('customer');
+    }
+    
+    /**
+     * Check if authenticated user is staff
+     */
+    function isStaff() {
+      return hasRole('staff');
+    }
+    
+    // ========================================================================
+    // USERS COLLECTION
+    // Path: /users/{userId}
+    // ========================================================================
+    match /users/{userId} {
+      /**
+       * READ ACCESS:
+       * - Users can read their own document
+       * - Admins can read all user documents
+       */
+      allow read: if isOwner(userId) || isAdmin();
+      
+      /**
+       * WRITE ACCESS:
+       * - Users can write to their own document
+       * - Admins can write to any user document
+       * 
+       * Note: Role field should only be modified by admins or during initial creation
+       */
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    // ========================================================================
+    // PROVIDERS COLLECTION
+    // Path: /providers/{providerId}
+    // ========================================================================
+    match /providers/{providerId} {
+      /**
+       * READ ACCESS:
+       * - Anyone authenticated can read provider data (public listings)
+       * - Unauthenticated users can also read (for browsing)
+       */
+      allow read: if true;
+      
+      /**
+       * CREATE ACCESS:
+       * - Only admins can create provider documents
+       */
+      allow create: if isAdmin();
+      
+      /**
+       * UPDATE ACCESS:
+       * - Provider can update their own document (identified by userId field)
+       * - Admins can update any provider document
+       */
+      allow update: if isAdmin() || 
+                       (isAuthenticated() && resource.data.userId == request.auth.uid);
+      
+      /**
+       * DELETE ACCESS:
+       * - Only admins can delete provider documents
+       */
+      allow delete: if isAdmin();
+    }
+    
+    // ========================================================================
+    // SERVICES COLLECTION
+    // Path: /services/{serviceId}
+    // ========================================================================
+    match /services/{serviceId} {
+      /**
+       * READ ACCESS:
+       * - Anyone authenticated can read services (service catalog)
+       * - Unauthenticated users can also read (for browsing)
+       */
+      allow read: if true;
+      
+      /**
+       * WRITE ACCESS:
+       * - Only admins can create, update, or delete services
+       */
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    // ========================================================================
+    // BOOKINGS COLLECTION
+    // Path: /bookings/{bookingId}
+    // ========================================================================
+    match /bookings/{bookingId} {
+      /**
+       * READ ACCESS:
+       * - Customer can read their own bookings (customerId matches)
+       * - Provider can read bookings assigned to them (providerId matches)
+       * - Admins and staff can read all bookings
+       */
+      allow read: if isAdmin() || 
+                     isStaff() ||
+                     (isAuthenticated() && resource.data.customerId == request.auth.uid) ||
+                     (isAuthenticated() && resource.data.providerId == request.auth.uid);
+      
+      /**
+       * CREATE ACCESS:
+       * - Any authenticated user can create a booking
+       * - The customerId field must match the authenticated user's UID
+       */
+      allow create: if isAuthenticated() && 
+                       request.resource.data.customerId == request.auth.uid;
+      
+      /**
+       * UPDATE ACCESS:
+       * 
+       * Customer can update if:
+       * - They own the booking (customerId matches)
+       * - Typically for cancelling bookings
+       * 
+       * Provider can update if:
+       * - They are assigned to the booking (providerId matches)
+       * - Typically for status updates (accepted, on_the_way, completed)
+       * 
+       * Admin/Staff can update any booking
+       */
+      allow update: if isAdmin() || 
+                       isStaff() ||
+                       (isAuthenticated() && resource.data.customerId == request.auth.uid) ||
+                       (isAuthenticated() && resource.data.providerId == request.auth.uid);
+      
+      /**
+       * DELETE ACCESS:
+       * - Only admins can delete bookings
+       */
+      allow delete: if isAdmin();
+    }
+    
+    // ========================================================================
+    // PAYMENTS COLLECTION
+    // Path: /payments/{paymentId}
+    // ========================================================================
+    match /payments/{paymentId} {
+      /**
+       * READ ACCESS:
+       * - Customer can read their own payments (customerId matches)
+       * - Provider can read payments for their services (providerId matches)
+       * - Admins and staff can read all payments
+       */
+      allow read: if isAdmin() || 
+                     isStaff() ||
+                     (isAuthenticated() && resource.data.customerId == request.auth.uid) ||
+                     (isAuthenticated() && resource.data.providerId == request.auth.uid);
+      
+      /**
+       * CREATE ACCESS:
+       * - Any authenticated user can create a payment
+       * - The customerId field must match the authenticated user's UID
+       */
+      allow create: if isAuthenticated() && 
+                       request.resource.data.customerId == request.auth.uid;
+      
+      /**
+       * UPDATE ACCESS:
+       * - Only admins can update payments
+       */
+      allow update: if isAdmin();
+      
+      /**
+       * DELETE ACCESS:
+       * - Only admins can delete payments
+       */
+      allow delete: if isAdmin();
+    }
+    
+    // ========================================================================
+    // REVIEWS COLLECTION (Optional - for future use)
+    // Path: /reviews/{reviewId}
+    // ========================================================================
+    match /reviews/{reviewId} {
+      /**
+       * READ ACCESS:
+       * - Anyone can read reviews (public)
+       */
+      allow read: if true;
+      
+      /**
+       * CREATE ACCESS:
+       * - Authenticated users can create reviews
+       */
+      allow create: if isAuthenticated();
+      
+      /**
+       * UPDATE ACCESS:
+       * - Users can update their own reviews
+       * - Admins can update any review
+       */
+      allow update: if isAdmin() || 
+                       (isAuthenticated() && resource.data.userId == request.auth.uid);
+      
+      /**
+       * DELETE ACCESS:
+       * - Users can delete their own reviews
+       * - Admins can delete any review
+       */
+      allow delete: if isAdmin() || 
+                       (isAuthenticated() && resource.data.userId == request.auth.uid);
+    }
+    
+    // ========================================================================
+    // NOTIFICATIONS COLLECTION (Optional - for future use)
+    // Path: /notifications/{notificationId}
+    // ========================================================================
+    match /notifications/{notificationId} {
+      /**
+       * READ ACCESS:
+       * - Users can read their own notifications
+       * - Admins can read all notifications
+       */
+      allow read: if isAdmin() || 
+                     (isAuthenticated() && resource.data.userId == request.auth.uid);
+      
+      /**
+       * CREATE ACCESS:
+       * - System-generated, but admins can create
+       */
+      allow create: if isAdmin();
+      
+      /**
+       * UPDATE ACCESS:
+       * - Users can update their own notifications (mark as read)
+       * - Admins can update any notification
+       */
+      allow update: if isAdmin() || 
+                       (isAuthenticated() && resource.data.userId == request.auth.uid);
+      
+      /**
+       * DELETE ACCESS:
+       * - Users can delete their own notifications
+       * - Admins can delete any notification
+       */
+      allow delete: if isAdmin() || 
+                       (isAuthenticated() && resource.data.userId == request.auth.uid);
+    }
+    
+    // ========================================================================
+    // DEFAULT RULE - DENY ALL
+    // ========================================================================
+    // Any collection not explicitly defined above is denied by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

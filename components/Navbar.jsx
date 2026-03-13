@@ -38,6 +38,11 @@ export default function Navbar() {
     { label: t('tracking'), href: '/tracking' },
   ];
 
+  const authenticatedLinks = isAuthenticated ? [
+    { label: t('dashboard'), href: dashboardRoute },
+    { label: 'Profile', href: '/profile' },
+  ] : [];
+
   return (
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-50 fixoo-shadow">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -58,12 +63,12 @@ export default function Navbar() {
                   {link.label}
                 </Link>
               ))}
-              {isAuthenticated && (
-                <Link href={dashboardRoute}
+              {authenticatedLinks.map((link) => (
+                <Link key={link.href} href={link.href}
                   className="text-gray-600 hover:text-[#2D4FE0] font-medium transition text-sm">
-                  {t('dashboard')}
+                  {link.label}
                 </Link>
-              )}
+              ))}
             </div>
           </div>
 
@@ -126,6 +131,11 @@ export default function Navbar() {
       {mobileMenuOpen && (
         <div className="md:hidden bg-white border-t border-gray-200 px-4 py-4 space-y-3">
           {navLinks.map((link) => (
+            <Link key={link.href} href={link.href} className="block py-2 text-gray-700 font-medium" onClick={() => setMobileMenuOpen(false)}>
+              {link.label}
+            </Link>
+          ))}
+          {authenticatedLinks.map((link) => (
             <Link key={link.href} href={link.href} className="block py-2 text-gray-700 font-medium" onClick={() => setMobileMenuOpen(false)}>
               {link.label}
             </Link>
